@@ -191,6 +191,9 @@
     plugin-gitsigns-nvim.url = "github:lewis6991/gitsigns.nvim";
     plugin-gitsigns-nvim.flake = false;
 
+    plugin-lazygit-nvim.url = "github:kdheepak/lazygit.nvim";
+    plugin-lazygit-nvim.flake = false;
+
     # Key binding help
     plugin-which-key.url = "github:folke/which-key.nvim";
     plugin-which-key.flake = false;
@@ -222,22 +225,20 @@
   };
 
   outputs =
-    { nixpkgs
-    , flake-utils
-    , ...
-    } @ inputs:
+    { nixpkgs, flake-utils, ... }@inputs:
     let
       rawPlugins = nvimLib.plugins.fromInputs inputs "plugin-";
 
-      neovimConfiguration = { modules ? [ ], ... } @ args:
-        import ./modules
-          (args // { modules = [{ config.build.rawPlugins = rawPlugins; }] ++ modules; });
+      neovimConfiguration =
+        {
+          modules ? [ ],
+          ...
+        }@args:
+        import ./modules (args // { modules = [ { config.build.rawPlugins = rawPlugins; } ] ++ modules; });
 
       nvimBin = pkg: "${pkg}/bin/nvim";
 
-      buildPkg = pkgs: modules: (neovimConfiguration {
-        inherit pkgs modules;
-      });
+      buildPkg = pkgs: modules: (neovimConfiguration { inherit pkgs modules; });
 
       nvimLib = (import ./modules/lib/stdlib-extended.nix nixpkgs.lib).nvim;
 
@@ -245,7 +246,8 @@
         config.vim.languages.tidal.enable = true;
       };
 
-      mainConfig = isMaximal:
+      mainConfig =
+        isMaximal:
         let
           overrideable = nixpkgs.lib.mkOverride 1200; # between mkOptionDefault and mkDefault
         in
@@ -326,6 +328,7 @@
               enable = overrideable true;
               gitsigns.enable = overrideable true;
               gitsigns.codeActions = overrideable true;
+              lazygit.enable = overrideable true;
             };
           };
         };
@@ -346,74 +349,95 @@
         neovim-tidal = buildPkg prev [ tidalConfig ];
       };
     }
-    // (flake-utils.lib.eachDefaultSystem (system:
-    let
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [
-          inputs.tidalcycles.overlays.default
-          (final: prev: {
-            rnix-lsp = inputs.rnix-lsp.defaultPackage.${system};
-            nil = inputs.nil.packages.${system}.default;
-          })
-        ];
-      };
+    // (flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [
+            inputs.tidalcycles.overlays.default
+            (final: prev: {
+              rnix-lsp = inputs.rnix-lsp.defaultPackage.${system};
+              nil = inputs.nil.packages.${system}.default;
+            })
+          ];
+        };
 
-      docs = import ./docs {
-        inherit pkgs;
-        nmdSrc = inputs.nmd;
-      };
+        docs = import ./docs {
+          inherit pkgs;
+          nmdSrc = inputs.nmd;
+        };
 
-      tidalPkg = buildPkg pkgs [ tidalConfig ];
-      nixPkg = buildPkg pkgs [ nixConfig ];
-      maximalPkg = buildPkg pkgs [ maximalConfig ];
+        tidalPkg = buildPkg pkgs [ tidalConfig ];
+        nixPkg = buildPkg pkgs [ nixConfig ];
+        maximalPkg = buildPkg pkgs [ maximalConfig ];
 
-      devPkg = nixPkg.extendConfiguration {
-        modules = [
-          {
-            vim.syntaxHighlighting = false;
-            vim.languages.nix.format.type = "nixpkgs-fmt";
-            vim.languages.bash.enable = true;
-            vim.languages.html.enable = true;
-            vim.filetree.nvimTreeLua.enable = false;
+        devPkg = nixPkg.extendConfiguration {
+          modules = [
+            {
+              vim.git = {
+                enable = true;
+                lazygit.enable = true;
+              };
+              vim.filetree.nvimTreeLua.enable = false;
+              vim.languages.nix.format.type = "nixpkgs-fmt";
+              vim.languages.bash.enable = true;
+              vim.languages.html.enable = true;
+              vim.syntaxHighlighting = true;
+            }
+          ];
+        };
+      in
+      {
+        apps =
+          rec {
+            nix = {
+              type = "app";
+              program = nvimBin nixPkg;
+            };
+            maximal = {
+              type = "app";
+              program = nvimBin maximalPkg;
+            };
+            default = nix;
           }
-        ];
-      };
-    in
-    {
-      apps =
-        rec {
-          nix = {
-            type = "app";
-            program = nvimBin nixPkg;
-          };
-          maximal = {
-            type = "app";
-            program = nvimBin maximalPkg;
-          };
-          default = nix;
-        }
-        // pkgs.lib.optionalAttrs (!(builtins.elem system [ "aarch64-darwin" "x86_64-darwin" ])) {
-          tidal = {
-            type = "app";
-            program = nvimBin tidalPkg;
-          };
+          // pkgs.lib.optionalAttrs
+            (
+              !(builtins.elem system [
+                "aarch64-darwin"
+                "x86_64-darwin"
+              ])
+            )
+            {
+              tidal = {
+                type = "app";
+                program = nvimBin tidalPkg;
+              };
+            };
+
+        devShells.default = pkgs.mkShell {
+          nativeBuildInputs = [
+            pkgs.lazygit
+            devPkg
+          ];
         };
 
-      devShells.default = pkgs.mkShell { nativeBuildInputs = [ devPkg ]; };
-
-      packages =
-        {
-          docs-html = docs.manual.html;
-          docs-manpages = docs.manPages;
-          docs-json = docs.options.json;
-          default = nixPkg;
-          nix = nixPkg;
-          maximal = maximalPkg;
-          develop = devPkg;
-        }
-        // pkgs.lib.optionalAttrs (!(builtins.elem system [ "aarch64-darwin" "x86_64-darwin" ])) {
-          tidal = tidalPkg;
-        };
-    }));
+        packages =
+          {
+            docs-html = docs.manual.html;
+            docs-manpages = docs.manPages;
+            docs-json = docs.options.json;
+            default = nixPkg;
+            nix = nixPkg;
+            maximal = maximalPkg;
+            develop = devPkg;
+          }
+          // pkgs.lib.optionalAttrs (
+            !(builtins.elem system [
+              "aarch64-darwin"
+              "x86_64-darwin"
+            ])
+          ) { tidal = tidalPkg; };
+      }
+    ));
 }

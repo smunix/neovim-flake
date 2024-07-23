@@ -432,6 +432,22 @@
         "type": "github"
       }
     },
+    "plugin-lazygit-nvim": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1720479596,
+        "narHash": "sha256-BnuFi8TKDsypQ11j2ORJ1JFsFsvAaPtDWm+R7UnIa3M=",
+        "owner": "kdheepak",
+        "repo": "lazygit.nvim",
+        "rev": "dc56df433bfbf107fee0139e187eb9750878fa84",
+        "type": "github"
+      },
+      "original": {
+        "owner": "kdheepak",
+        "repo": "lazygit.nvim",
+        "type": "github"
+      }
+    },
     "plugin-lsp-signature": {
       "flake": false,
       "locked": {
@@ -1106,6 +1122,7 @@
         "plugin-gruvbox": "plugin-gruvbox",
         "plugin-indent-blankline": "plugin-indent-blankline",
         "plugin-kommentary": "plugin-kommentary",
+        "plugin-lazygit-nvim": "plugin-lazygit-nvim",
         "plugin-lsp-signature": "plugin-lsp-signature",
         "plugin-lspkind": "plugin-lspkind",
         "plugin-lspsaga": "plugin-lspsaga",
