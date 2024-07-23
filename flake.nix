@@ -293,6 +293,7 @@
             vim.visuals = {
               enable = overrideable true;
               nvimWebDevicons.enable = overrideable true;
+              startify.enable = overrideable true;
               indentBlankline = {
                 enable = overrideable true;
                 fillChar = overrideable null;
