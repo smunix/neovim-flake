@@ -380,9 +380,12 @@
                 lazygit.enable = true;
               };
               vim.filetree.nvimTreeLua.enable = false;
-              vim.languages.nix.format.type = "nixpkgs-fmt";
-              vim.languages.bash.enable = true;
-              vim.languages.html.enable = true;
+              vim.languages = {
+                bash.enable = true;
+                html.enable = true;
+                nix.format.type = "nixpkgs-fmt";
+                python.enable = true;
+              };
               vim.syntaxHighlighting = true;
             }
           ];
